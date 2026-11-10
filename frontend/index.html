@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sentinel · Agent OS × PayPal</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2314213D'/%3E%3Cpath d='M9 17l5 5 9-11' fill='none' stroke='%233DDC97' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #EEF2EF;        /* security-paper green-grey */
+  --sheet: #FFFFFF;
+  --ink: #14213D;          /* bank-ink navy */
+  --ink-soft: #4A5670;
+  --ink-faint: #7C879B;
+  --line: #CFD8D3;
+  --line-soft: #E2E8E4;
+  --hold: #B87A00;         /* held for approval */
+  --hold-bg: #FFF4D6;
+  --hold-line: #DDB957;
+  --go: #0B7A53;
+  --go-bg: #E2F4EC;
+  --stop: #B3261E;
+  --stop-bg: #FBE9E7;
+  --talk: #2456C9;
+  --talk-bg: #E6EDFB;
+  --test: #6B4BC4;
+  --test-bg: #EEE9FA;
+  --read: #51606F;
+  --read-bg: #E8ECEF;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Instrument Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --code: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html { font-size: 15px; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--body); line-height: 1.45; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:disabled { cursor: default; opacity: .55; }
+:focus-visible { outline: 2px solid var(--talk); outline-offset: 2px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+h2 { font-size: 1.35rem; }
+h3 { font-size: 1.05rem; }
+code, .fn { font-family: var(--code); font-size: .86em; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--ink-soft); }
+.faint { color: var(--ink-faint); }
+.hidden { display: none !important; }
+
+/* ---------------------------------------------------------------- masthead */
+.mast { background: var(--ink); color: #fff; }
+.mast-in { max-width: 1320px; margin: 0 auto; padding: 16px 24px 0; }
+.mast-top { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
+.brand { font-family: var(--display); font-weight: 700; font-size: 1.6rem; letter-spacing: -0.02em; }
+.brand small { font-family: var(--body); font-weight: 400; font-size: .85rem; color: #AEB9D0; margin-left: 8px; letter-spacing: 0; }
+.live { margin-left: auto; font-size: .85rem; color: #AEB9D0; display: flex; align-items: center; gap: 7px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: #7C879B; }
+.live.on .dot { background: #3DDC97; }
+.state { margin: 6px 0 14px; color: #D5DCEA; font-size: .95rem; max-width: 78ch; }
+.state b { color: #fff; font-weight: 600; }
+.state .warn { color: #FFD479; }
+.tabs { display: flex; gap: 2px; flex-wrap: wrap; }
+.tabs a { color: #C3CCDF; text-decoration: none; padding: 9px 15px; border-radius: 6px 6px 0 0; font-weight: 500; }
+.tabs a:hover { color: #fff; background: rgba(255,255,255,.08); }
+.tabs a[aria-current="page"] { background: var(--paper); color: var(--ink); }
+.tabs .count { font-variant-numeric: tabular-nums; background: var(--hold); color: #fff; border-radius: 9px; padding: 0 7px; font-size: .78rem; margin-left: 6px; }
+
+/* ------------------------------------------------------------------ layout */
+main { max-width: 1320px; margin: 0 auto; padding: 26px 24px 80px; }
+.desk { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 34px; align-items: start; }
+.section-head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 12px; }
+.section-head p { margin: 0; color: var(--ink-soft); }
+.block { margin-bottom: 38px; }
+.empty { border: 1px dashed var(--line); border-radius: 6px; padding: 22px; color: var(--ink-soft); background: rgba(255,255,255,.5); }
+.empty b { color: var(--ink); }
+
+/* ------------------------------------------------------- the approval slip */
+.slip { position: relative; display: grid; grid-template-columns: 178px minmax(0, 1fr); background: var(--sheet);
+        border: 1px solid var(--line); border-radius: 6px; margin-bottom: 14px; overflow: hidden; }
+.stub { background: var(--hold-bg); border-right: 2px dashed var(--hold-line); padding: 18px 16px; display: flex; flex-direction: column; }
+.slip::before, .slip::after { content: ""; position: absolute; left: 169px; width: 18px; height: 18px; border-radius: 50%;
+        background: var(--paper); border: 1px solid var(--line); z-index: 1; }
+.slip::before { top: -10px; } .slip::after { bottom: -10px; }
+.stub .amount { font-family: var(--display); font-weight: 700; font-size: 1.85rem; line-height: 1.05; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.stub .what { color: var(--hold); font-weight: 600; margin-top: 3px; }
+.stub .slipno { margin-top: auto; padding-top: 14px; color: var(--ink-faint); font-size: .82rem; }
+.slip-body { padding: 16px 20px 16px 26px; min-width: 0; }
+.slip-body h3 { margin-bottom: 3px; }
+.slip-meta { color: var(--ink-soft); font-size: .92rem; margin-bottom: 9px; }
+.slip-why { margin: 0 0 12px; max-width: 72ch; }
+.sends { color: var(--ink-soft); font-size: .88rem; margin: 0 0 12px; }
+.slip-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--sheet); border-radius: 6px; padding: 8px 16px; font-weight: 600; }
+.btn:hover:not(:disabled) { border-color: var(--ink-faint); }
+.btn.approve { background: var(--go); border-color: var(--go); color: #fff; }
+.btn.approve:hover:not(:disabled) { background: #096545; }
+.btn.reject { color: var(--stop); }
+.btn.link { border: 0; background: none; padding: 8px 4px; color: var(--talk); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+.stamp { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(255,255,255,.82); z-index: 2; pointer-events: none; }
+.stamp span { font-family: var(--display); font-weight: 700; font-size: 2rem; letter-spacing: .04em; padding: 6px 22px; border: 4px solid currentColor;
+        border-radius: 8px; transform: rotate(-7deg); animation: stamp .28s cubic-bezier(.2,1.4,.4,1) both; }
+.stamp.ok { color: var(--go); } .stamp.no { color: var(--stop); }
+@keyframes stamp { from { transform: rotate(-7deg) scale(1.9); opacity: 0; } to { transform: rotate(-7deg) scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .stamp span { animation: none; } }
+
+/* ------------------------------------------------------------------ tables */
+.table-wrap { background: var(--sheet); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; }
+.table-wrap > table { min-width: 620px; }
+.drawer .table-wrap > table { min-width: 0; }
+th { text-align: left; font-weight: 600; color: var(--ink-soft); font-size: .86rem; padding: 10px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; background: #F8FAF9; }
+td { padding: 11px 14px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+tbody tr.click { cursor: pointer; }
+tbody tr.click:hover td { background: #F6F9F7; }
+td.r, th.r { text-align: right; }
+td.nowrap { white-space: nowrap; }
+.who { font-weight: 600; }
+.sub { color: var(--ink-soft); font-size: .88rem; }
+
+/* -------------------------------------------------------------------- tags */
+.tag { display: inline-block; border-radius: 4px; padding: 1px 8px; font-size: .82rem; font-weight: 600; white-space: nowrap; }
+.t-read { background: var(--read-bg); color: var(--read); }
+.t-communicate { background: var(--talk-bg); color: var(--talk); }
+.t-money_legal { background: var(--hold-bg); color: var(--hold); }
+.t-sandbox_only { background: var(--test-bg); color: var(--test); }
+.s-wait { background: var(--hold-bg); color: var(--hold); }
+.s-done { background: var(--go-bg); color: var(--go); }
+.s-bad { background: var(--stop-bg); color: var(--stop); }
+.s-quiet { background: var(--read-bg); color: var(--read); }
+
+/* ---------------------------------------------------------------- side rail */
+.rail h3 { margin-bottom: 10px; }
+.try { display: grid; gap: 8px; margin-bottom: 34px; }
+.try .btn { text-align: left; padding: 10px 14px; font-weight: 500; }
+.try .btn b { display: block; font-weight: 600; }
+.try .btn span { color: var(--ink-soft); font-size: .86rem; }
+.feed { list-style: none; margin: 0; padding: 0 0 0 16px; border-left: 2px solid var(--line); }
+.feed li { position: relative; padding: 0 0 14px 4px; font-size: .92rem; overflow-wrap: anywhere; }
+.feed li::before { content: ""; position: absolute; left: -22px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--paper); border: 2px solid var(--ink-faint); }
+.feed li.k-hold::before { border-color: var(--hold); background: var(--hold-bg); }
+.feed li.k-go::before { border-color: var(--go); background: var(--go-bg); }
+.feed li.k-stop::before { border-color: var(--stop); background: var(--stop-bg); }
+.feed li.k-talk::before { border-color: var(--talk); background: var(--talk-bg); }
+.feed time { display: block; color: var(--ink-faint); font-size: .8rem; }
+
+/* ------------------------------------------------------------------ filters */
+.filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+.filters input, .filters select { font: inherit; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--sheet); color: var(--ink); }
+.filters input { min-width: 240px; }
+.bar { display: inline-block; width: 90px; height: 8px; border-radius: 4px; background: var(--line-soft); vertical-align: middle; margin-right: 8px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--go); }
+details.schema summary { cursor: pointer; color: var(--talk); font-size: .88rem; }
+pre { font-family: var(--code); font-size: .8rem; background: #F4F7F5; border: 1px solid var(--line-soft); border-radius: 6px; padding: 10px 12px; overflow: auto; max-height: 320px; margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ------------------------------------------------------------------- drawer */
+.scrim { position: fixed; inset: 0; background: rgba(20,33,61,.38); z-index: 20; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(640px, 100vw); background: var(--sheet); z-index: 21; overflow-y: auto;
+          box-shadow: -12px 0 40px rgba(20,33,61,.18); padding: 24px 28px 60px; }
+.drawer-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
+.drawer-head h2 { flex: 1; font-size: 1.45rem; line-height: 1.2; }
+.x { border: 1px solid var(--line); background: var(--sheet); border-radius: 6px; width: 34px; height: 34px; font-size: 1.1rem; line-height: 1; }
+.drawer h3 { margin: 26px 0 8px; }
+.drawer p { max-width: 68ch; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 5px 18px; margin: 12px 0 0; }
+.facts dt { color: var(--ink-soft); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.proof { margin: 0; padding-left: 18px; }
+.proof li { margin-bottom: 6px; }
+.trail { list-style: none; counter-reset: step; margin: 0; padding: 0; }
+.trail li { counter-increment: step; display: grid; grid-template-columns: 26px 1fr; gap: 4px 10px; padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
+.trail li::before { content: counter(step); font-variant-numeric: tabular-nums; color: var(--ink-faint); font-weight: 600; }
+.trail .row { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.trail details { grid-column: 2; }
+.outcome { border-radius: 6px; padding: 12px 14px; margin-top: 12px; font-weight: 600; }
+.outcome.won { background: var(--go-bg); color: var(--go); } .outcome.lost { background: var(--stop-bg); color: var(--stop); }
+.inline-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+/* -------------------------------------------------------------------- toast */
+.toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 6px;
+         z-index: 40; max-width: min(560px, 92vw); box-shadow: 0 8px 24px rgba(20,33,61,.3); }
+.toast.err { background: var(--stop); }
+
+@media (max-width: 1000px) {
+  .desk { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .slip { grid-template-columns: 1fr; }
+  .stub { border-right: 0; border-bottom: 2px dashed var(--hold-line); flex-direction: row; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .stub .slipno { margin: 0 0 0 auto; padding: 0; }
+  .slip::before, .slip::after { display: none; }
+  .slip-body { padding: 14px 16px; }
+  main, .mast-in { padding-left: 14px; padding-right: 14px; }
+}
+</style>
+</head>
+<body>
+
+<header class="mast">
+  <div class="mast-in">
+    <div class="mast-top">
+      <div class="brand">Sentinel<small>Agent OS × PayPal</small></div>
+      <div class="live" id="live" role="status"><span class="dot"></span><span id="live-text">Connecting…</span></div>
+    </div>
+    <p class="state" id="state">Loading…</p>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#desk" data-view="desk">Desk<span class="count hidden" id="tab-count"></span></a>
+      <a href="#decisions" data-view="decisions">Decisions</a>
+      <a href="#audit" data-view="audit">Audit log</a>
+      <a href="#clients" data-view="clients">Clients</a>
+      <a href="#functions" data-view="functions">Functions</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- ---------------------------------------------------------------- Desk -->
+  <section id="view-desk" class="desk">
+    <div>
+      <div class="block">
+        <div class="section-head"><h2>Waiting for you</h2><p id="wait-note"></p></div>
+        <div id="slips"></div>
+      </div>
+      <div class="block">
+        <div class="section-head"><h2>Latest decisions</h2><p><button class="btn link" data-go="decisions">See all</button></p></div>
+        <div id="desk-decisions"></div>
+      </div>
+    </div>
+    <aside class="rail">
+      <div id="try-box" class="hidden">
+        <h3>Try it</h3>
+        <div class="try">
+          <button class="btn" data-demo="dispute"><b>Open a test dispute</b><span>A customer disputes a payment</span></button>
+          <button class="btn" data-demo="invoices"><b>Seed overdue invoices</b><span>Four clients, four payment habits</span></button>
+          <button class="btn" data-demo="subscription" id="demo-sub"><b>Fail a subscription payment</b><span>The rescue agent proposes a retry</span></button>
+          <button class="btn" data-demo="forged-webhook"><b>Send a forged webhook</b><span>It should be rejected and logged</span></button>
+        </div>
+      </div>
+      <h3>Activity</h3>
+      <ul class="feed" id="feed" aria-live="polite"></ul>
+      <p class="faint" id="feed-empty">Nothing yet. Events appear here as they happen.</p>
+    </aside>
+  </section>
+
+  <!-- ----------------------------------------------------------- Decisions -->
+  <section id="view-decisions" class="hidden">
+    <div class="section-head"><h2>Decisions</h2><p>Every call an agent made, and what happened to it.</p></div>
+    <div class="filters">
+      <select id="dec-agent" aria-label="Agent">
+        <option value="">All agents</option>
+        <option value="dispute_resolver">Dispute resolver</option>
+        <option value="collections">Collections</option>
+        <option value="subscription_rescue">Subscription rescue</option>
+      </select>
+      <select id="dec-status" aria-label="Status">
+        <option value="">Any status</option>
+        <option value="pending_approval">Waiting for you</option>
+        <option value="executed">Done</option>
+        <option value="rejected">Rejected</option>
+        <option value="failed">Failed</option>
+        <option value="needs_review">Needs review</option>
+      </select>
+    </div>
+    <div id="all-decisions"></div>
+  </section>
+
+  <!-- --------------------------------------------------------------- Audit -->
+  <section id="view-audit" class="hidden">
+    <div class="section-head"><h2>Audit log</h2><p id="audit-note">Append-only. Nothing here can be edited or deleted.</p></div>
+    <div class="filters">
+      <select id="audit-action" aria-label="Kind of entry">
+        <option value="">Everything</option>
+        <option value="approval.*">Approvals</option>
+        <option value="invoke.*">Function calls</option>
+        <option value="webhook.*">Webhooks</option>
+        <option value="decision.*">Decisions</option>
+        <option value="agent.*">Agent refusals</option>
+      </select>
+      <input id="audit-fn" type="search" placeholder="Filter by function, e.g. disputes.get" aria-label="Filter by function">
+    </div>
+    <div id="audit-table"></div>
+  </section>
+
+  <!-- ------------------------------------------------------------- Clients -->
+  <section id="view-clients" class="hidden">
+    <div class="section-head"><h2>Clients</h2><p>How each payer has paid before. The collections agent reads this.</p></div>
+    <div id="clients-table"></div>
+  </section>
+
+  <!-- ----------------------------------------------------------- Functions -->
+  <section id="view-functions" class="hidden">
+    <div class="section-head"><h2>Functions</h2><p id="fn-note"></p></div>
+    <div class="filters">
+      <input id="fn-search" type="search" placeholder="Search functions" aria-label="Search functions">
+      <select id="fn-tier" aria-label="Tier">
+        <option value="">All tiers</option>
+        <option value="read">read: runs automatically</option>
+        <option value="communicate">communicate: runs, logged, rate-limited</option>
+        <option value="money_legal">money_legal: waits for approval</option>
+        <option value="sandbox_only">sandbox_only: test environments only</option>
+      </select>
+    </div>
+    <div id="fn-table"></div>
+  </section>
+</main>
+
+<div id="drawer-root"></div>
+<div id="toast-root"></div>
+
+<script>
+"use strict";
+/* ============================================================== helpers */
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+async function api(path, options = {}) {
+  const headers = { ...(options.body ? { "Content-Type": "application/json" } : {}), ...(TOKEN ? { Authorization: "Bearer " + TOKEN } : {}) };
+  const response = await fetch(path, { ...options, headers });
+  let data = null;
+  try { data = await response.json(); } catch (_) { /* no body */ }
+  if (!response.ok) {
+    const detail = data && (data.detail || data.reason || (data.error && data.error.message));
+    const error = new Error(typeof detail === "string" ? detail : "Request failed (HTTP " + response.status + ")");
+    error.status = response.status;
+    error.data = data;
+    throw error;
+  }
+  return data;
+}
+const post = (path, body) => api(path, { method: "POST", body: JSON.stringify(body || {}) });
+
+function money(value, currency) {
+  if (value === null || value === undefined || value === "") return "";
+  const n = Number(value);
+  if (Number.isNaN(n)) return esc(value);
+  try { return new Intl.NumberFormat("en-US", { style: "currency", currency: currency || "USD" }).format(n); }
+  catch (_) { return n.toFixed(2) + " " + (currency || ""); }
+}
+function ago(iso) {
+  const t = new Date(iso).getTime();
+  if (!t) return "";
+  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+  if (s < 45) return "just now";
+  if (s < 3600) return Math.round(s / 60) + " min ago";
+  if (s < 86400) return Math.round(s / 3600) + " h ago";
+  return Math.round(s / 86400) + " d ago";
+}
+const clock = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }); };
+const stamp = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? "" : d.toLocaleString(); };
+
+function toast(message, isError) {
+  const el = document.createElement("div");
+  el.className = "toast" + (isError ? " err" : "");
+  el.setAttribute("role", isError ? "alert" : "status");
+  el.textContent = message;
+  $("toast-root").replaceChildren(el);
+  setTimeout(() => el.remove(), isError ? 7000 : 3500);
+}
+
+/* ============================================================ vocabulary */
+const AGENTS = { dispute_resolver: "Dispute resolver", collections: "Collections", subscription_rescue: "Subscription rescue" };
+const ACTIONS = { fight: "Fight", offer: "Offer refund", accept: "Accept claim", needs_human: "Needs review", gentle_note: "Gentle note",
+  reminder: "Reminder", discount: "Discount", wait: "Wait", retry_capture: "Retry charge" };
+const STATUSES = { pending_approval: ["Waiting for you", "s-wait"], executed: ["Done", "s-done"], rejected: ["Rejected", "s-bad"],
+  failed: ["Failed", "s-bad"], denied: ["Blocked", "s-bad"], needs_review: ["Needs review", "s-wait"], no_action: ["No action", "s-quiet"],
+  decided: ["Deciding", "s-quiet"] };
+const SENDS = {
+  "disputes.provide_evidence": ["Submit evidence to PayPal", "in dispute"],
+  "disputes.make_offer": ["Offer the customer a partial refund", "offer"],
+  "disputes.accept_claim": ["Refund the customer in full", "refund"],
+  "invoices.apply_discount": ["Take a discount off the invoice", "discount"],
+  "subscriptions.capture": ["Charge the subscriber again", "charge"],
+  "payments.refund": ["Refund a payment", "refund"],
+};
+const SUBJECTS = { dispute: "Dispute", invoice: "Invoice", subscription: "Subscription" };
+const statusTag = (s) => { const [label, cls] = STATUSES[s] || [s, "s-quiet"]; return `<span class="tag ${cls}">${esc(label)}</span>`; };
+const tierTag = (t) => t ? `<span class="tag t-${esc(t)}">${esc(t)}</span>` : "";
+const brain = (model) => !model ? "" : model.startsWith("rules-engine") ? "Rules engine" + (model.length > 12 ? " (Claude was unavailable)" : "") : model;
+
+/* ================================================================= state */
+const state = { status: null, approvals: [], decisions: [], feed: [], functions: [], view: "desk" };
+
+/* ============================================================== masthead */
+function renderState() {
+  const s = state.status;
+  if (!s) return;
+  const env = { mock: "the <b>built-in mock PayPal</b> (no real account)", sandbox: "the <b>PayPal sandbox</b>", live: "<b>live PayPal</b>" }[s.paypal_env] || esc(s.paypal_env);
+  const who = s.llm_enabled ? `Agents think with <b>${esc(s.llm)}</b>.` : "Agents run on the <b>built-in rules engine</b> (no Claude key set).";
+  const cap = Number(s.auto_approve_cap) > 0
+    ? `Money actions up to <b>${money(s.auto_approve_cap, s.auto_approve_currency)}</b> run on their own; anything larger waits for you.`
+    : "Every money action waits for you.";
+  const ready = s.paypal_ready ? `Connected to ${env}.` : `<span class="warn">PayPal is not connected: ${esc(s.paypal_not_ready_reason || "")}</span>`;
+  $("state").innerHTML = `${ready} ${who} ${cap}`;
+  $("try-box").classList.toggle("hidden", !s.demo_enabled);
+  $("demo-sub").classList.toggle("hidden", s.paypal_env !== "mock");
+  $("fn-note").textContent = `${s.paypal_functions} PayPal functions, compiled once from PayPal's own API specs. Agents can only call what is listed here.`;
+}
+
+/* ================================================================= slips */
+function slipHtml(a) {
+  const d = a.decision || {};
+  const [sends, noun] = SENDS[a.function] || ["Run " + a.function, "amount"];
+  const amount = a.amount ? money(a.amount, a.currency) : (d.amount ? money(d.amount, d.currency) : "");
+  const who = d.client_name ? esc(d.client_name) : (a.client_id ? esc(a.client_id) : "");
+  const subject = d.subject_type ? `${SUBJECTS[d.subject_type] || esc(d.subject_type)} ${esc(d.subject_id)}` : "";
+  const retry = a.status === "failed";
+  return `<article class="slip" data-slip="${a.id}">
+    <div class="stub">
+      <div class="amount">${amount || "No amount"}</div>
+      <div class="what">${amount ? esc(noun) : "legal action"}</div>
+      <div class="slipno">Slip ${a.id}, ${esc(ago(a.created_at))}</div>
+    </div>
+    <div class="slip-body">
+      <h3>${esc(d.summary || a.reason || sends)}</h3>
+      <div class="slip-meta">${[who, subject, d.agent ? esc(AGENTS[d.agent] || d.agent) : ""].filter(Boolean).join(", ")}</div>
+      ${d.reasoning ? `<p class="slip-why">${esc(d.reasoning)}</p>` : ""}
+      ${retry ? `<p class="slip-why" style="color:var(--stop)">The last attempt failed: ${esc((a.error && a.error.message) || "unknown error")}. Approving again retries safely with the same request ID.</p>` : ""}
+      <p class="sends">Approving will <b>${esc(sends.charAt(0).toLowerCase() + sends.slice(1))}</b> <span class="fn">(${esc(a.function)})</span></p>
+      <div class="slip-foot">
+        <button class="btn approve" data-approve="${a.id}">${retry ? "Approve again" : "Approve"}</button>
+        <button class="btn reject" data-reject="${a.id}">Reject</button>
+        ${a.decision_id ? `<button class="btn link" data-open="${a.decision_id}">See the evidence</button>` : ""}
+      </div>
+    </div>
+  </article>`;
+}
+function renderSlips() {
+  const list = state.approvals;
+  const n = list.length;
+  $("tab-count").textContent = n;
+  $("tab-count").classList.toggle("hidden", n === 0);
+  document.title = (n ? `(${n}) ` : "") + "Sentinel · Agent OS × PayPal";
+  $("wait-note").textContent = n ? `${n} ${n === 1 ? "action needs" : "actions need"} your decision. Nothing below has been sent to PayPal yet.` : "";
+  if (!n) {
+    const demo = state.status && state.status.demo_enabled ? " Use <b>Try it</b> on the right to create a test case." : "";
+    $("slips").innerHTML = `<div class="empty"><b>Nothing is waiting.</b> When an agent wants to move money or take a legal step, the action is held here until you approve it.${demo}</div>`;
+    return;
+  }
+  // Keep slips that are mid-animation; rebuild the rest.
+  const busy = new Set([...document.querySelectorAll(".slip.busy")].map((el) => el.dataset.slip));
+  if (busy.size === 0) $("slips").innerHTML = list.map(slipHtml).join("");
+}
+
+/* ============================================================= decisions */
+function decisionsTable(rows, emptyText) {
+  if (!rows.length) return `<div class="empty">${emptyText}</div>`;
+  const body = rows.map((d) => `<tr class="click" data-open="${d.id}" tabindex="0">
+      <td><div class="who">${esc(d.summary || ACTIONS[d.action] || d.action)}</div>
+          <div class="sub">${esc(d.input_summary || "")}</div></td>
+      <td class="nowrap">${esc(AGENTS[d.agent] || d.agent)}</td>
+      <td class="r num nowrap">${money(d.amount, d.currency)}</td>
+      <td class="nowrap">${statusTag(d.status)}</td>
+      <td class="nowrap faint" title="${esc(stamp(d.created_at))}">${esc(ago(d.created_at))}</td>
+    </tr>`).join("");
+  return `<div class="table-wrap"><table>
+    <thead><tr><th>Decision</th><th>Agent</th><th class="r">Amount</th><th>Status</th><th>When</th></tr></thead>
+    <tbody>${body}</tbody></table></div>`;
+}
+function renderDecisions() {
+  const demo = state.status && state.status.demo_enabled;
+  $("desk-decisions").innerHTML = decisionsTable(state.decisions.slice(0, 8),
+    "<b>No decisions yet.</b> " + (demo ? "Open a test dispute to watch an agent gather proof and decide." : "They appear when PayPal sends an event."));
+  if (state.view === "decisions") renderAllDecisions();
+}
+async function renderAllDecisions() {
+  const params = new URLSearchParams({ limit: "200" });
+  if ($("dec-agent").value) params.set("agent", $("dec-agent").value);
+  if ($("dec-status").value) params.set("status", $("dec-status").value);
+  try {
+    const rows = await api("/decisions?" + params);
+    $("all-decisions").innerHTML = decisionsTable(rows, "<b>No decisions match.</b> Change the filters above.");
+  } catch (e) { $("all-decisions").innerHTML = `<div class="empty">Could not load decisions: ${esc(e.message)}</div>`; }
+}
+
+/* ================================================================ drawer */
+let openDecisionId = null;
+function closeDrawer() { openDecisionId = null; $("drawer-root").innerHTML = ""; }
+async function openDecision(id, keepScroll) {
+  openDecisionId = Number(id);
+  let d;
+  try { d = await api("/decisions/" + id); } catch (e) { toast(e.message, true); return; }
+  if (openDecisionId !== Number(id)) return;
+  const dec = d.decision || {};
+  const pa = d.pending_action;
+  const outcome = d.result && d.result.dispute_outcome;
+  const won = outcome && /SELLER/.test(outcome.outcome_code || "");
+  const evidence = (d.evidence || []).map((e) => `<li>${esc(e.description)}${e.source ? ` <span class="fn faint">${esc(e.source)}</span>` : ""}</li>`).join("");
+  const trail = (d.tool_calls || []).map((c) => `<li>
+      <div class="row"><span class="fn">${esc(c.function)}</span>${tierTag(c.tier)}
+        <span class="${c.status === "ok" ? "muted" : ""}">${esc({ ok: "ran", pending_approval: "held for approval", denied: "blocked", error: "failed" }[c.status] || c.status)}${c.auto_approved ? ", under the auto-approve limit" : ""}</span>
+        <span class="faint num">${Number(c.duration_ms || 0).toFixed(0)} ms</span></div>
+      <details class="schema"><summary>Arguments and result</summary><pre>${esc(JSON.stringify({ args: c.args, result: c.result_preview }, null, 2))}</pre></details>
+    </li>`).join("");
+  const audit = (d.audit || []).map((r) => `<tr><td class="nowrap faint">${esc(clock(r.ts))}</td><td>${esc(r.actor)}</td><td>${esc(r.action)}</td><td class="fn">${esc(r.function || "")}</td></tr>`).join("");
+  const note = dec.note ? `<h3>The note that goes with it</h3><p>${esc(dec.note)}</p>` : "";
+  const demo = state.status && state.status.demo_enabled;
+  const canSettle = demo && d.subject_type === "dispute" && d.status === "executed" && !outcome && d.action !== "accept";
+  let actionBox = "";
+  if (pa && (pa.status === "pending" || pa.status === "failed")) {
+    actionBox = `<div class="inline-actions"><button class="btn approve" data-approve="${pa.id}">${pa.status === "failed" ? "Approve again" : "Approve"}</button><button class="btn reject" data-reject="${pa.id}">Reject</button></div>`;
+  }
+  const scroll = keepScroll ? (document.querySelector(".drawer") || {}).scrollTop : 0;
+  $("drawer-root").innerHTML = `<div class="scrim" data-close></div>
+    <aside class="drawer" role="dialog" aria-modal="true" aria-label="Decision ${d.id}">
+      <div class="drawer-head"><h2>${esc(d.summary || ACTIONS[d.action] || d.action)}</h2><button class="x" data-close aria-label="Close">✕</button></div>
+      <div>${statusTag(d.status)} <span class="muted">${esc(d.input_summary || "")}</span></div>
+      ${outcome ? `<div class="outcome ${won ? "won" : "lost"}">PayPal's outcome: ${won ? "resolved for the seller" : "resolved for the buyer"} <span class="fn">(${esc(outcome.outcome_code || "")})</span></div>` : ""}
+      ${actionBox}
+      ${canSettle ? `<div class="inline-actions"><span class="muted" style="align-self:center">Test only, play PayPal's reviewer:</span>
+          <button class="btn" data-settle="SELLER_FAVOR" data-dispute="${esc(d.subject_id)}">Settle for the seller</button>
+          <button class="btn" data-settle="BUYER_FAVOR" data-dispute="${esc(d.subject_id)}">Settle for the buyer</button></div>` : ""}
+      <h3>Why</h3><p>${esc(d.reasoning || "No reasoning recorded.")}</p>
+      ${evidence ? `<h3>Evidence</h3><ul class="proof">${evidence}</ul>` : ""}
+      ${note}
+      <dl class="facts">
+        <dt>Agent</dt><dd>${esc(AGENTS[d.agent] || d.agent)}</dd>
+        <dt>Decided by</dt><dd>${esc(brain(d.model))}</dd>
+        <dt>Confidence</dt><dd class="num">${d.confidence != null ? Math.round(d.confidence * 100) + "%" : ""}</dd>
+        <dt>${esc(SUBJECTS[d.subject_type] || "Subject")}</dt><dd class="fn">${esc(d.subject_id)}</dd>
+        <dt>Client</dt><dd>${esc(d.client_name || d.client_id || "")}</dd>
+        <dt>Action</dt><dd>${d.proposed_function ? `<span class="fn">${esc(d.proposed_function)}</span>` : "None"}</dd>
+        <dt>Decided</dt><dd>${esc(stamp(d.created_at))}</dd>
+      </dl>
+      <h3>What the agent did, in order</h3>
+      ${trail ? `<ol class="trail">${trail}</ol>` : `<p class="muted">No function calls.</p>`}
+      <h3>Audit trail</h3>
+      ${audit ? `<div class="table-wrap"><table><tbody>${audit}</tbody></table></div>` : `<p class="muted">No audit rows.</p>`}
+    </aside>`;
+  if (keepScroll) document.querySelector(".drawer").scrollTop = scroll;
+  else document.querySelector(".drawer .x").focus();
+}
+
+/* ============================================================ audit view */
+async function renderAudit() {
+  const params = new URLSearchParams({ limit: "300" });
+  if ($("audit-action").value) params.set("action", $("audit-action").value);
+  const fn = $("audit-fn").value.trim();
+  if (fn) params.set("function", fn);
+  try {
+    const data = await api("/audit?" + params);
+    $("audit-note").textContent = `Append-only. ${data.total} entries so far; nothing here can be edited or deleted.`;
+    if (!data.items.length) { $("audit-table").innerHTML = `<div class="empty"><b>No entries match.</b> Function names must match exactly.</div>`; return; }
+    const cls = { ok: "s-done", executed: "s-done", approved: "s-done", accepted: "s-done", pending_approval: "s-wait", rejected: "s-bad", denied: "s-bad", error: "s-bad", failed: "s-bad" };
+    $("audit-table").innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>Time</th><th>Who</th><th>What</th><th>Function</th><th>Result</th><th>Arguments hash</th></tr></thead>
+      <tbody>${data.items.map((r) => `<tr>
+        <td class="nowrap faint" title="${esc(stamp(r.ts))}">${esc(clock(r.ts))}</td>
+        <td>${esc(r.actor)}</td><td>${esc(r.action)}${r.detail && (r.detail.reason || r.detail.error) ? `<div class="sub">${esc(r.detail.reason || r.detail.error)}</div>` : ""}</td>
+        <td class="fn">${esc(r.function || "")}</td>
+        <td>${r.status ? `<span class="tag ${cls[r.status] || "s-quiet"}">${esc(r.status)}</span>` : ""}</td>
+        <td class="fn faint" title="${esc(r.args_hash || "")}">${esc((r.args_hash || "").slice(0, 12))}</td></tr>`).join("")}</tbody></table></div>`;
+  } catch (e) { $("audit-table").innerHTML = `<div class="empty">Could not load the audit log: ${esc(e.message)}</div>`; }
+}
+
+/* ========================================================== clients view */
+async function renderClients() {
+  try {
+    const rows = await api("/clients");
+    if (!rows.length) {
+      const demo = state.status && state.status.demo_enabled;
+      $("clients-table").innerHTML = `<div class="empty"><b>No client profiles yet.</b> A profile is built the first time the collections agent looks at a client's invoices.${demo ? " On the Desk, choose <b>Seed overdue invoices</b>." : ""}</div>`;
+      return;
+    }
+    $("clients-table").innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>Client</th><th>Paid on time</th><th class="r">Average lateness</th><th class="r">Invoices paid</th><th class="r">Outstanding</th><th>Updated</th></tr></thead>
+      <tbody>${rows.map((c) => `<tr>
+        <td><div class="who">${esc(c.name || c.client_id)}</div><div class="sub">${esc(c.client_id)}</div></td>
+        <td class="nowrap">${c.paid_count ? `<span class="bar"><i style="width:${Math.round(c.on_time_share * 100)}%"></i></span><span class="num">${Math.round(c.on_time_share * 100)}%</span>` : `<span class="faint">No history</span>`}</td>
+        <td class="r num nowrap">${c.paid_count ? esc(c.avg_days_late) + " days" : ""}</td>
+        <td class="r num">${esc(c.paid_count)}</td>
+        <td class="r num nowrap">${money(c.outstanding_amount, c.currency)}</td>
+        <td class="nowrap faint">${esc(ago(c.last_updated))}</td></tr>`).join("")}</tbody></table></div>`;
+  } catch (e) { $("clients-table").innerHTML = `<div class="empty">Could not load clients: ${esc(e.message)}</div>`; }
+}
+
+/* ======================================================== functions view */
+function renderFunctions() {
+  const q = $("fn-search").value.trim().toLowerCase();
+  const tier = $("fn-tier").value;
+  const rows = state.functions.filter((f) => (!tier || f.tier === tier) && (!q || f.name.toLowerCase().includes(q) || (f.description || "").toLowerCase().includes(q)));
+  if (!rows.length) { $("fn-table").innerHTML = `<div class="empty"><b>No functions match.</b></div>`; return; }
+  $("fn-table").innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Function</th><th>Tier</th><th>Adapter</th><th>PayPal endpoint</th></tr></thead>
+    <tbody>${rows.map((f) => `<tr>
+      <td><div class="fn who">${esc(f.name)}</div><div class="sub">${esc(f.description)}</div>
+          <details class="schema"><summary>Input schema</summary><pre>${esc(JSON.stringify(f.input_schema, null, 2))}</pre></details></td>
+      <td>${tierTag(f.tier)}</td><td>${esc(f.adapter)}</td>
+      <td class="fn">${f.path ? esc((f.method || "") + " " + f.path) : `<span class="faint">${esc(f.source || "")}</span>`}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+/* ================================================================== feed */
+function feedLine(evt) {
+  const d = evt.data || {};
+  const t = evt.topic;
+  if (t.startsWith("paypal.")) return ["talk", "PayPal: " + (d.summary || d.event_type || t) + (d.simulated ? " (simulated)" : "")];
+  if (t === "webhook.rejected") return ["stop", "Rejected a webhook. " + (d.reason || "")];
+  if (t === "decision.created") return ["", (AGENTS[d.agent] || d.agent || "Agent") + " decided. " + (d.summary || "")];
+  if (t === "approval.created") return ["hold", "Held for your approval: " + d.function + (d.amount ? ", " + money(d.amount, d.currency) : "")];
+  if (t === "approval.executed") return ["go", "Approved and sent to PayPal: " + d.function];
+  if (t === "approval.rejected") return ["stop", "You rejected: " + d.function];
+  if (t === "approval.failed") return ["stop", "Approved, but PayPal refused: " + d.function];
+  if (t === "registry.changed") return ["", "Function registry updated: " + (d.count ?? "") + " functions from " + (d.adapter || "an adapter")];
+  if (t === "job.failed") return ["stop", "A background job failed" + (d.will_retry ? " and will retry. " : ". ") + (d.error || "")];
+  return null;
+}
+function pushFeed(evt) {
+  const line = feedLine(evt);
+  if (!line) return;
+  state.feed.unshift({ kind: line[0], text: line[1], ts: evt.ts || new Date().toISOString() });
+  state.feed = state.feed.slice(0, 40);
+  renderFeed();
+}
+function renderFeed() {
+  $("feed-empty").classList.toggle("hidden", state.feed.length > 0);
+  $("feed").innerHTML = state.feed.map((f) => `<li class="${f.kind ? "k-" + f.kind : ""}">${esc(f.text)}<time>${esc(clock(f.ts))}</time></li>`).join("");
+}
+
+/* =============================================================== loading */
+async function refresh() {
+  try {
+    const [status, approvals, decisions] = await Promise.all([
+      api("/status"), api("/approvals?status=pending"), api("/decisions?limit=60")]);
+    const failed = await api("/approvals?status=failed").catch(() => []);
+    state.status = status;
+    state.approvals = [...approvals, ...failed].sort((a, b) => b.id - a.id);
+    state.decisions = decisions;
+    const amounts = Object.fromEntries(decisions.map((d) => [d.id, d]));
+    state.approvals.forEach((a) => { if (a.decision && amounts[a.decision.id]) { a.decision.amount = amounts[a.decision.id].amount; a.decision.currency = amounts[a.decision.id].currency; } });
+    renderState(); renderSlips(); renderDecisions();
+    if (state.view === "audit") renderAudit();
+    if (state.view === "clients") renderClients();
+    if (openDecisionId) openDecision(openDecisionId, true);
+  } catch (e) {
+    if (e.status === 401) $("state").innerHTML = `<span class="warn">This dashboard needs its token. Open it as <code>/?token=YOUR_DASHBOARD_TOKEN</code>.</span>`;
+    else $("state").innerHTML = `<span class="warn">Cannot reach the daemon: ${esc(e.message)}</span>`;
+  }
+}
+let refreshTimer = null;
+const refreshSoon = () => { clearTimeout(refreshTimer); refreshTimer = setTimeout(refresh, 250); };
+
+async function loadFunctions() {
+  try { state.functions = await api("/functions"); renderFunctions(); }
+  catch (e) { $("fn-table").innerHTML = `<div class="empty">Could not load functions: ${esc(e.message)}</div>`; }
+}
+
+function connectStream() {
+  const source = new EventSource("/stream" + (TOKEN ? "?token=" + encodeURIComponent(TOKEN) : ""));
+  source.onopen = () => { $("live").classList.add("on"); $("live-text").textContent = "Live"; };
+  source.onerror = () => { $("live").classList.remove("on"); $("live-text").textContent = "Reconnecting…"; };
+  source.onmessage = (message) => {
+    let evt; try { evt = JSON.parse(message.data); } catch (_) { return; }
+    if (evt.topic === "stream.connected") return;
+    pushFeed(evt);
+    refreshSoon();
+    if (evt.topic === "registry.changed") loadFunctions();
+  };
+}
+
+/* ================================================================ routing */
+function show(view) {
+  const known = ["desk", "decisions", "audit", "clients", "functions"];
+  state.view = known.includes(view) ? view : "desk";
+  known.forEach((v) => $("view-" + v).classList.toggle("hidden", v !== state.view));
+  document.querySelectorAll(".tabs a").forEach((a) => { if (a.dataset.view === state.view) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  if (state.view === "decisions") renderAllDecisions();
+  if (state.view === "audit") renderAudit();
+  if (state.view === "clients") renderClients();
+  if (state.view === "functions") loadFunctions();
+}
+window.addEventListener("hashchange", () => show(location.hash.slice(1)));
+
+/* ================================================================ actions */
+async function decide(id, verb, button) {
+  const slip = document.querySelector(`.slip[data-slip="${id}"]`);
+  document.querySelectorAll(`[data-approve="${id}"], [data-reject="${id}"]`).forEach((b) => { b.disabled = true; });
+  if (slip) slip.classList.add("busy");
+  try {
+    const row = await post(`/approvals/${id}/${verb}`, { decided_by: "merchant" });
+    const ok = verb === "approve" && row.status === "executed";
+    if (verb === "approve" && !ok) {
+      toast("Approved, but PayPal refused it: " + ((row.error && row.error.message) || "unknown error"), true);
+    } else {
+      if (slip) {
+        slip.insertAdjacentHTML("beforeend", `<div class="stamp ${ok ? "ok" : "no"}"><span>${ok ? "Approved" : "Rejected"}</span></div>`);
+        await new Promise((r) => setTimeout(r, 900));
+      }
+      toast(ok ? "Approved. The action was sent to PayPal once." : "Rejected. Nothing was sent to PayPal.");
+    }
+  } catch (e) {
+    toast(e.status === 409 ? "That action was already decided." : e.message, true);
+  }
+  if (slip) slip.classList.remove("busy");
+  await refresh();
+}
+
+const DEMO_DONE = {
+  dispute: (r) => `Test dispute ${r.dispute_id} opened. The agent is gathering proof.`,
+  invoices: (r) => `${r.seeded.invoices_created} test invoices created. The collections agent is reading each client's history.`,
+  subscription: (r) => `Subscription ${r.subscription_id} has a failed payment. The rescue agent is on it.`,
+  "forged-webhook": (r) => r.status === "rejected" ? "The forged webhook was rejected and written to the audit log." : "Unexpected: the forged webhook was " + r.status,
+};
+async function runDemo(kind, button) {
+  button.disabled = true;
+  try {
+    const result = await post("/demo/" + kind).catch((e) => { if (kind === "forged-webhook" && e.data && e.data.status) return e.data; throw e; });
+    toast(DEMO_DONE[kind](result));
+    refreshSoon();
+  } catch (e) { toast(e.message, true); }
+  button.disabled = false;
+}
+
+document.addEventListener("click", (event) => {
+  const el = event.target.closest("[data-approve],[data-reject],[data-open],[data-close],[data-demo],[data-go],[data-settle]");
+  if (!el) return;
+  if (el.dataset.approve) return void decide(el.dataset.approve, "approve", el);
+  if (el.dataset.reject) return void decide(el.dataset.reject, "reject", el);
+  if (el.dataset.open) return void openDecision(el.dataset.open);
+  if (el.hasAttribute("data-close")) return void closeDrawer();
+  if (el.dataset.demo) return void runDemo(el.dataset.demo, el);
+  if (el.dataset.go) { location.hash = el.dataset.go; return; }
+  if (el.dataset.settle) {
+    el.disabled = true;
+    post("/demo/settle", { dispute_id: el.dataset.dispute, outcome: el.dataset.settle })
+      .then(() => { toast("Settled. PayPal's outcome will appear here in a moment."); refreshSoon(); })
+      .catch((e) => { toast(e.message, true); el.disabled = false; });
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeDrawer();
+  if (event.key === "Enter" && event.target.matches("tr.click")) openDecision(event.target.dataset.open);
+});
+$("dec-agent").addEventListener("change", renderAllDecisions);
+$("dec-status").addEventListener("change", renderAllDecisions);
+$("audit-action").addEventListener("change", renderAudit);
+let auditTimer = null;
+$("audit-fn").addEventListener("input", () => { clearTimeout(auditTimer); auditTimer = setTimeout(renderAudit, 250); });
+$("fn-search").addEventListener("input", renderFunctions);
+$("fn-tier").addEventListener("change", renderFunctions);
+
+/* ================================================================== start */
+async function loadRecentActivity() {
+  // Fill the feed with what happened before this page was opened.
+  try {
+    const data = await api("/events?limit=60");
+    (data.recent_activity || []).forEach(pushFeed);
+  } catch (_) { /* the feed simply starts empty */ }
+}
+show(location.hash.slice(1));
+refresh();
+loadRecentActivity();
+connectStream();
+setInterval(refresh, 20000);   // safety net if the live stream drops
+setInterval(() => { renderFeed(); }, 30000);
+</script>
+</body>
+</html>

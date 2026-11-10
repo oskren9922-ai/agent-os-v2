@@ -1,0 +1,31 @@
+# Render blueprint: deploys the daemon and gives it a public HTTPS URL,
+# which is what PayPal needs for webhooks:  https://<your-app>.onrender.com/webhooks/paypal
+services:
+  - type: web
+    name: agent-os-sentinel
+    runtime: python
+    plan: free
+    buildCommand: pip install -e .
+    startCommand: python -m cli.main paypal register && uvicorn daemon.main:app --host 0.0.0.0 --port $PORT --timeout-graceful-shutdown 5
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: PAYPAL_CLIENT_ID
+        sync: false          # set these in the Render dashboard, never in git
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: DASHBOARD_TOKEN
+        generateValue: true  # the public dashboard and API require this token
+      - key: AUTO_APPROVE_CAP
+        value: "25.00"
+      # The free plan has no persistent disk: the database resets on every deploy or restart.
+      # For a lasting database, add a disk and point AGENTOS_DB_PATH at it.
+      - key: AGENTOS_DB_PATH
+        value: /tmp/agentos/agentos.db

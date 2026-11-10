@@ -1,0 +1,14 @@
+{
+  "source": "https://github.com/paypal/paypal-rest-api-specifications",
+  "license": "Apache-2.0",
+  "commit": "90e8041ffe02d80c452d2b476bedd59a8d219bdc",
+  "sha256": {
+    "customer_disputes_v1.json": "a72134c1a48d800f4da69d5c331b5b74ddde3eb71c97fc61c8e221f3aebf035f",
+    "invoicing_v2.json": "b38ec179b0a904eed50825cd0b456e788569dc3fdb6efd08e131751f7cc19f52",
+    "checkout_orders_v2.json": "14db0b9e0d7440e38595b823724599edc7ab8b7a2b41ac442463e81b7d477fd6",
+    "payments_v2.json": "ecd8bc60e133bd4bc54de10daae3011a451e3a69e971ddf19c09213aa0f15c21",
+    "billing_subscriptions_v1.json": "ef9d5dd5d81fba9d951c2dba2d76cf958ab1cd9d0a2dc6b8415df7fac5829a8b",
+    "reporting_transactions_v1.json": "40f2af0c02c204dde9227b14a6f9f91c2a6cc4222fe2c7c20983c6bc6f9e52b4",
+    "notifications_webhooks_v1.json": "4702a4c2601a087cdde7481f1b55800abb568906e50dde867bb958b4b25afecf"
+  }
+}
